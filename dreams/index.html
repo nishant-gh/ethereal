@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dreams — Ethereal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap');
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  body { min-height: 100vh; overflow: hidden; background: #0a0510; font-family: 'Cormorant Garamond', serif; color: #e8d8f4; cursor: crosshair; }
+  canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+  .content { position: relative; z-index: 10; text-align: center; padding: 2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; pointer-events: none; animation: fadeIn 2.5s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  h1 { font-size: clamp(2.5rem, 7vw, 6rem); font-weight: 300; letter-spacing: 0.25em; text-transform: lowercase; background: linear-gradient(135deg, #f9a8d4 0%, #c084fc 40%, #818cf8 70%, #a5f3fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 30px rgba(192, 132, 252, 0.4)); }
+  .line { width: 100px; height: 1px; background: linear-gradient(90deg, transparent, rgba(192, 132, 252, 0.5), transparent); margin: 1.5rem auto; }
+  p { font-size: clamp(0.95rem, 2vw, 1.3rem); font-weight: 300; font-style: italic; letter-spacing: 0.12em; opacity: 0.7; max-width: 450px; line-height: 1.8; }
+  .hint { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); font-size: 0.8rem; letter-spacing: 0.2em; opacity: 0.3; z-index: 20; display: flex; gap: 2rem; align-items: center; }
+  a.back { color: rgba(232, 216, 244, 0.4); text-decoration: none; transition: color 0.3s; pointer-events: all; }
+  a.back:hover { color: rgba(232, 216, 244, 0.8); }
+</style>
+</head>
+<body>
+  <canvas id="dreams"></canvas>
+  <div class="content">
+    <h1>dreams</h1>
+    <div class="line"></div>
+    <p>touch the darkness gently —<br>it blooms where you reach</p>
+  </div>
+  <div class="hint"><a class="back" href="../">← return</a><span>click to dream</span></div>
+  <script>
+    const c = document.getElementById('dreams');
+    const ctx = c.getContext('2d');
+    function resize() { c.width = innerWidth; c.height = innerHeight; }
+    resize(); addEventListener('resize', resize);
+    let blooms = [];
+    class Bloom {
+      constructor(x, y) {
+        this.x = x; this.y = y; this.petals = [];
+        const count = 20 + Math.floor(Math.random() * 20);
+        const hue = 260 + Math.random() * 80;
+        for (let i = 0; i < count; i++) {
+          const angle = (Math.PI * 2 / count) * i + Math.random() * 0.3;
+          const speed = 0.5 + Math.random() * 2;
+          const size = 2 + Math.random() * 4;
+          const life = 120 + Math.random() * 120;
+          const drift = (Math.random() - 0.5) * 0.02;
+          this.petals.push({ x, y, angle, speed, size, life, maxLife: life, drift, hue: hue + Math.random() * 40, sat: 60 + Math.random() * 30 });
+        }
+      }
+      update() {
+        this.petals.forEach(p => {
+          p.x += Math.cos(p.angle) * p.speed;
+          p.y += Math.sin(p.angle) * p.speed;
+          p.angle += p.drift;
+          p.speed *= 0.995;
+          p.life--;
+        });
+        this.petals = this.petals.filter(p => p.life > 0);
+      }
+      draw() {
+        this.petals.forEach(p => {
+          const alpha = (p.life / p.maxLife) * 0.6;
+          const size = p.size * (1 - (1 - p.life / p.maxLife) * 0.5);
+          ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${p.hue}, ${p.sat}%, 70%, ${alpha})`;
+          ctx.shadowBlur = size * 4;
+          ctx.shadowColor = `hsla(${p.hue}, ${p.sat}%, 60%, ${alpha * 0.5})`;
+          ctx.fill(); ctx.shadowBlur = 0;
+        });
+      }
+      get alive() { return this.petals.length > 0; }
+    }
+    addEventListener('click', e => blooms.push(new Bloom(e.clientX, e.clientY)));
+    addEventListener('touchstart', e => { e.preventDefault(); for (const t of e.touches) blooms.push(new Bloom(t.clientX, t.clientY)); }, { passive: false });
+    let mouseDown = false, mx = 0, my = 0, frame = 0;
+    addEventListener('mousedown', () => mouseDown = true);
+    addEventListener('mouseup', () => mouseDown = false);
+    addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+    function animate() {
+      ctx.fillStyle = 'rgba(10, 5, 16, 0.06)';
+      ctx.fillRect(0, 0, c.width, c.height);
+      if (mouseDown && frame % 3 === 0) blooms.push(new Bloom(mx + (Math.random()-0.5)*20, my + (Math.random()-0.5)*20));
+      blooms.forEach(b => { b.update(); b.draw(); });
+      blooms = blooms.filter(b => b.alive);
+      frame++;
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>

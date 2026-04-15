@@ -105,6 +105,47 @@
     animation: fadeIn 3s ease-out 0.8s both;
   }
 
+  .nav {
+    margin-top: 3rem;
+    display: flex;
+    gap: 2.5rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    animation: fadeIn 3s ease-out 1.5s both;
+  }
+
+  .nav a {
+    color: rgba(200, 180, 240, 0.5);
+    text-decoration: none;
+    font-size: 1.1rem;
+    letter-spacing: 0.25em;
+    text-transform: lowercase;
+    transition: all 0.5s ease;
+    position: relative;
+    padding: 0.3rem 0;
+  }
+
+  .nav a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.6), transparent);
+    transition: width 0.5s ease;
+  }
+
+  .nav a:hover {
+    color: rgba(200, 180, 240, 0.9);
+    text-shadow: 0 0 20px rgba(167, 139, 250, 0.3);
+  }
+
+  .nav a:hover::after {
+    width: 100%;
+  }
+
   .orb {
     position: fixed;
     border-radius: 50%;
@@ -162,6 +203,11 @@
     <h1>ethereal</h1>
     <div class="line"></div>
     <p>between the silence of stars<br>and the breath of light,<br>there is a place that remembers you</p>
+    <nav class="nav">
+      <a href="aurora/">aurora</a>
+      <a href="dreams/">dreams</a>
+      <a href="ocean/">ocean</a>
+    </nav>
   </div>
 
   <script>
