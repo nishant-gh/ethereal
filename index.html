@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethereal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: #0a0a12;
+    font-family: 'Cormorant Garamond', serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e8dff0;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .glow-bg {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120vmax;
+    height: 120vmax;
+    background: radial-gradient(ellipse at center,
+      rgba(120, 80, 180, 0.12) 0%,
+      rgba(60, 40, 120, 0.06) 30%,
+      rgba(20, 10, 50, 0.02) 60%,
+      transparent 80%);
+    animation: breathe 8s ease-in-out infinite;
+    z-index: 1;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
+    50% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+  }
+
+  .content {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    padding: 2rem;
+    animation: fadeIn 3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 {
+    font-size: clamp(3rem, 8vw, 7rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: lowercase;
+    background: linear-gradient(135deg, #c9b1ff 0%, #f0e0ff 40%, #a78bfa 70%, #e0d0ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(167, 139, 250, 0.3));
+    animation: shimmer 6s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { filter: drop-shadow(0 0 40px rgba(167, 139, 250, 0.3)); }
+    50% { filter: drop-shadow(0 0 60px rgba(167, 139, 250, 0.5)); }
+  }
+
+  .line {
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.6), transparent);
+    margin: 2rem auto;
+    animation: expandLine 2s ease-out 1s both;
+  }
+
+  @keyframes expandLine {
+    from { width: 0; opacity: 0; }
+    to { width: 120px; opacity: 1; }
+  }
+
+  p {
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.15em;
+    opacity: 0.7;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.8;
+    animation: fadeIn 3s ease-out 0.8s both;
+  }
+
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .orb-1 {
+    width: 300px; height: 300px;
+    top: 10%; left: -5%;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.08), transparent 70%);
+    animation: float1 12s ease-in-out infinite;
+  }
+
+  .orb-2 {
+    width: 200px; height: 200px;
+    bottom: 15%; right: 5%;
+    background: radial-gradient(circle, rgba(196, 167, 255, 0.06), transparent 70%);
+    animation: float2 15s ease-in-out infinite;
+  }
+
+  .orb-3 {
+    width: 400px; height: 400px;
+    top: 40%; right: -10%;
+    background: radial-gradient(circle, rgba(109, 72, 206, 0.05), transparent 70%);
+    animation: float3 18s ease-in-out infinite;
+  }
+
+  @keyframes float1 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(40px, 30px) scale(1.1); }
+    66% { transform: translate(-20px, 50px) scale(0.95); }
+  }
+
+  @keyframes float2 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-30px, -40px) scale(1.05); }
+    66% { transform: translate(20px, -20px) scale(1.1); }
+  }
+
+  @keyframes float3 {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-50px, 30px) scale(1.08); }
+  }
+</style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <canvas id="stars"></canvas>
+
+  <div class="content">
+    <h1>ethereal</h1>
+    <div class="line"></div>
+    <p>between the silence of stars<br>and the breath of light,<br>there is a place that remembers you</p>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('stars');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    let mouse = { x: null, y: null };
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+    class Particle {
+      constructor() {
+        this.reset();
+        this.y = Math.random() * canvas.height;
+        this.fadeIn = Math.random();
+      }
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = -10;
+        this.size = Math.random() * 1.5 + 0.3;
+        this.speed = Math.random() * 0.3 + 0.05;
+        this.opacity = Math.random() * 0.6 + 0.1;
+        this.drift = (Math.random() - 0.5) * 0.3;
+        this.pulse = Math.random() * Math.PI * 2;
+        this.pulseSpeed = Math.random() * 0.02 + 0.005;
+      }
+      update() {
+        this.y += this.speed;
+        this.x += this.drift;
+        this.pulse += this.pulseSpeed;
+        if (mouse.x !== null) {
+          const dx = this.x - mouse.x;
+          const dy = this.y - mouse.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 150) {
+            const force = (150 - dist) / 150;
+            this.x += (dx / dist) * force * 0.5;
+            this.y += (dy / dist) * force * 0.5;
+          }
+        }
+        if (this.y > canvas.height + 10 || this.x < -10 || this.x > canvas.width + 10) {
+          this.reset();
+        }
+      }
+      draw() {
+        const glow = this.opacity * (0.7 + 0.3 * Math.sin(this.pulse));
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 180, 255, ${glow})`;
+        ctx.shadowBlur = this.size * 8;
+        ctx.shadowColor = 'rgba(167, 139, 250, 0.4)';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    for (let i = 0; i < 150; i++) particles.push(new Particle());
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => { p.update(); p.draw(); });
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>
