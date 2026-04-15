@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethereal — Nebula</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: #050208;
+    font-family: 'Cormorant Garamond', serif;
+    color: #e0d0f8;
+    cursor: crosshair;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .content {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    text-align: center;
+    padding: 3rem 2rem;
+    background: linear-gradient(to top, rgba(5, 2, 8, 0.9) 0%, transparent 100%);
+    animation: fadeIn 3s ease-out;
+    pointer-events: none;
+  }
+
+  .content > * { pointer-events: auto; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: lowercase;
+    background: linear-gradient(135deg, #e879f9 0%, #c084fc 30%, #7dd3fc 60%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(232, 121, 249, 0.3));
+    animation: shimmer 6s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { filter: drop-shadow(0 0 40px rgba(232, 121, 249, 0.3)); }
+    50% { filter: drop-shadow(0 0 60px rgba(192, 132, 252, 0.5)); }
+  }
+
+  .line {
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(232, 121, 249, 0.6), transparent);
+    margin: 1.5rem auto;
+  }
+
+  p {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.15em;
+    opacity: 0.7;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.8;
+  }
+
+  .back {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: rgba(200, 180, 240, 0.4);
+    text-decoration: none;
+    font-size: 0.95rem;
+    letter-spacing: 0.2em;
+    transition: color 0.5s ease;
+  }
+
+  .back:hover {
+    color: rgba(232, 180, 255, 0.8);
+  }
+</style>
+</head>
+<body>
+  <canvas id="nebula"></canvas>
+
+  <div class="content">
+    <h1>nebula</h1>
+    <div class="line"></div>
+    <p>where dying stars exhale color<br>and the cosmos paints itself<br>in slow, luminous breath</p>
+    <a class="back" href="../">&larr; return</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('nebula');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    let mouse = { x: -1000, y: -1000 };
+    let time = 0;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+    // Deep-field stars
+    const stars = [];
+    for (let i = 0; i < 300; i++) {
+      stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 1.2 + 0.2,
+        brightness: Math.random() * 0.7 + 0.3,
+        twinkleSpeed: Math.random() * 0.03 + 0.005,
+        twinkleOffset: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Nebula gas clouds — layered noise-like blobs
+    class GasCloud {
+      constructor() {
+        this.cx = Math.random() * 1.4 - 0.2;
+        this.cy = Math.random() * 1.4 - 0.2;
+        this.radiusX = Math.random() * 0.25 + 0.1;
+        this.radiusY = Math.random() * 0.2 + 0.08;
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotSpeed = (Math.random() - 0.5) * 0.0003;
+        this.driftX = (Math.random() - 0.5) * 0.00008;
+        this.driftY = (Math.random() - 0.5) * 0.00005;
+        // Color palette: pinks, purples, teals, blues
+        const palettes = [
+          [232, 121, 249],  // fuchsia
+          [192, 132, 252],  // purple
+          [125, 211, 252],  // sky blue
+          [167, 139, 250],  // indigo
+          [249, 115, 180],  // pink
+          [52, 211, 210],   // teal
+          [255, 160, 200],  // rose
+        ];
+        this.color = palettes[Math.floor(Math.random() * palettes.length)];
+        this.alpha = Math.random() * 0.025 + 0.008;
+        this.pulsePhase = Math.random() * Math.PI * 2;
+        this.pulseSpeed = Math.random() * 0.008 + 0.002;
+      }
+
+      update() {
+        this.rotation += this.rotSpeed;
+        this.cx += this.driftX;
+        this.cy += this.driftY;
+        this.pulsePhase += this.pulseSpeed;
+
+        // Wrap around
+        if (this.cx < -0.4) this.cx = 1.4;
+        if (this.cx > 1.4) this.cx = -0.4;
+        if (this.cy < -0.4) this.cy = 1.4;
+        if (this.cy > 1.4) this.cy = -0.4;
+      }
+
+      draw() {
+        const x = this.cx * W;
+        const y = this.cy * H;
+        const rx = this.radiusX * W;
+        const ry = this.radiusY * H;
+        const pulse = 1 + 0.15 * Math.sin(this.pulsePhase);
+        const [r, g, b] = this.color;
+        const a = this.alpha * pulse;
+
+        // Mouse interaction — clouds swell and brighten near cursor
+        const dx = x - mouse.x;
+        const dy = y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const influence = Math.max(0, 1 - dist / 300);
+        const boost = 1 + influence * 2;
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(this.rotation);
+        ctx.scale(pulse * boost, pulse * boost);
+
+        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(rx, ry));
+        grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${a * boost})`);
+        grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${a * 0.6 * boost})`);
+        grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${a * 0.15})`);
+        grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    const clouds = [];
+    for (let i = 0; i < 35; i++) clouds.push(new GasCloud());
+
+    // Luminous particles drifting through the nebula
+    class DriftParticle {
+      constructor() {
+        this.reset();
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+      }
+      reset() {
+        this.x = Math.random() * W;
+        this.y = -10;
+        this.size = Math.random() * 2 + 0.5;
+        this.speedX = (Math.random() - 0.5) * 0.4;
+        this.speedY = Math.random() * 0.4 + 0.1;
+        this.life = 1;
+        this.decay = Math.random() * 0.001 + 0.0005;
+        const hue = Math.random() < 0.5 ? Math.random() * 60 + 270 : Math.random() * 40 + 170;
+        this.hue = hue;
+        this.trail = [];
+      }
+      update() {
+        // Attract toward mouse gently
+        const dx = mouse.x - this.x;
+        const dy = mouse.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 250 && dist > 0) {
+          const force = 0.3 * (250 - dist) / 250;
+          this.speedX += (dx / dist) * force * 0.02;
+          this.speedY += (dy / dist) * force * 0.02;
+        }
+
+        this.trail.push({ x: this.x, y: this.y, life: 1 });
+        if (this.trail.length > 8) this.trail.shift();
+        this.trail.forEach(t => t.life -= 0.12);
+
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.life -= this.decay;
+
+        if (this.life <= 0 || this.y > H + 10 || this.x < -10 || this.x > W + 10) {
+          this.reset();
+        }
+      }
+      draw() {
+        // Trail
+        this.trail.forEach(t => {
+          if (t.life <= 0) return;
+          ctx.beginPath();
+          ctx.arc(t.x, t.y, this.size * 0.5 * t.life, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${this.hue}, 80%, 75%, ${t.life * 0.2 * this.life})`;
+          ctx.fill();
+        });
+
+        // Main particle
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 85%, 78%, ${this.life * 0.7})`;
+        ctx.shadowBlur = this.size * 10;
+        ctx.shadowColor = `hsla(${this.hue}, 90%, 65%, 0.4)`;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    const particles = [];
+    for (let i = 0; i < 60; i++) particles.push(new DriftParticle());
+
+    // Core glow at center — pulsing nebula heart
+    function drawCoreGlow() {
+      const pulse = 1 + 0.1 * Math.sin(time * 0.01);
+      const cx = W * 0.5 + Math.sin(time * 0.003) * 30;
+      const cy = H * 0.45 + Math.cos(time * 0.004) * 20;
+      const r = Math.min(W, H) * 0.18 * pulse;
+
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0, 'rgba(255, 200, 255, 0.04)');
+      grad.addColorStop(0.3, 'rgba(200, 120, 255, 0.025)');
+      grad.addColorStop(0.6, 'rgba(120, 80, 220, 0.012)');
+      grad.addColorStop(1, 'rgba(50, 20, 100, 0)');
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    function drawStars() {
+      stars.forEach(s => {
+        const twinkle = 0.5 + 0.5 * Math.sin(time * s.twinkleSpeed + s.twinkleOffset);
+        const alpha = s.brightness * twinkle;
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220, 210, 255, ${alpha})`;
+        ctx.fill();
+      });
+    }
+
+    function animate() {
+      time++;
+
+      // Soft fade for trailing effect
+      ctx.fillStyle = 'rgba(5, 2, 8, 0.15)';
+      ctx.fillRect(0, 0, W, H);
+
+      drawStars();
+      drawCoreGlow();
+
+      clouds.forEach(c => { c.update(); c.draw(); });
+      particles.forEach(p => { p.update(); p.draw(); });
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initial fill
+    ctx.fillStyle = '#050208';
+    ctx.fillRect(0, 0, W, H);
+    animate();
+  </script>
+</body>
+</html>
