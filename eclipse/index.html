@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethereal — Eclipse</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: #020204;
+    font-family: 'Cormorant Garamond', serif;
+    color: #d8d0e8;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .content {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    text-align: center;
+    padding: 3rem 2rem;
+    background: linear-gradient(to top, rgba(2, 2, 4, 0.95) 0%, transparent 100%);
+    animation: fadeIn 4s ease-out;
+    pointer-events: none;
+  }
+
+  .content > * { pointer-events: auto; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: lowercase;
+    background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 30%, #ff9a9e 60%, #fad0c4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(255, 180, 150, 0.3));
+    animation: shimmer 6s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { filter: drop-shadow(0 0 40px rgba(255, 180, 150, 0.3)); }
+    50% { filter: drop-shadow(0 0 60px rgba(255, 200, 170, 0.5)); }
+  }
+
+  .line {
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 180, 150, 0.5), transparent);
+    margin: 1.5rem auto;
+  }
+
+  p {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.15em;
+    opacity: 0.6;
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.8;
+  }
+
+  .back {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: rgba(220, 190, 170, 0.35);
+    text-decoration: none;
+    font-size: 0.95rem;
+    letter-spacing: 0.2em;
+    transition: color 0.5s ease;
+  }
+
+  .back:hover {
+    color: rgba(255, 210, 180, 0.8);
+  }
+</style>
+</head>
+<body>
+  <canvas id="eclipse"></canvas>
+
+  <div class="content">
+    <h1>eclipse</h1>
+    <div class="line"></div>
+    <p>when the moon remembers the sun,<br>it holds it close enough<br>to wear its crown of fire</p>
+    <a class="back" href="../">&larr; return</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('eclipse');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    let mouse = { x: -1000, y: -1000 };
+    let time = 0;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+    // Eclipse center
+    function eclipseX() { return W * 0.5; }
+    function eclipseY() { return H * 0.38; }
+    function eclipseR() { return Math.min(W, H) * 0.12; }
+
+    // Background stars
+    const stars = [];
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: Math.random() * 1.3 + 0.2,
+        brightness: Math.random() * 0.6 + 0.2,
+        twinkle: Math.random() * 0.02 + 0.005,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Corona rays
+    const rays = [];
+    for (let i = 0; i < 60; i++) {
+      const angle = (i / 60) * Math.PI * 2 + (Math.random() - 0.5) * 0.1;
+      rays.push({
+        angle: angle,
+        length: Math.random() * 0.6 + 0.3,
+        width: Math.random() * 0.015 + 0.005,
+        speed: Math.random() * 0.003 + 0.001,
+        phase: Math.random() * Math.PI * 2,
+        brightness: Math.random() * 0.4 + 0.1
+      });
+    }
+
+    // Baily's beads - bright points on the eclipse rim
+    const beads = [];
+    for (let i = 0; i < 8; i++) {
+      beads.push({
+        angle: Math.random() * Math.PI * 2,
+        size: Math.random() * 3 + 1.5,
+        brightness: Math.random() * 0.6 + 0.4,
+        pulseSpeed: Math.random() * 0.04 + 0.01,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Shadow particles drifting across
+    class ShadowParticle {
+      constructor() {
+        this.reset();
+        this.x = Math.random() * W;
+        this.y = Math.random() * H;
+      }
+      reset() {
+        this.x = -20;
+        this.y = Math.random() * H;
+        this.size = Math.random() * 40 + 15;
+        this.speed = Math.random() * 0.3 + 0.1;
+        this.opacity = Math.random() * 0.06 + 0.02;
+        this.drift = (Math.random() - 0.5) * 0.1;
+      }
+      update() {
+        this.x += this.speed;
+        this.y += this.drift;
+
+        // Mouse repels shadows
+        const dx = this.x - mouse.x;
+        const dy = this.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 150 && dist > 0) {
+          const force = (150 - dist) / 150;
+          this.x += (dx / dist) * force * 1.5;
+          this.y += (dy / dist) * force * 1.5;
+        }
+
+        if (this.x > W + 50) this.reset();
+      }
+      draw() {
+        const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+        grad.addColorStop(0, `rgba(0, 0, 10, ${this.opacity})`);
+        grad.addColorStop(1, 'rgba(0, 0, 10, 0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
+      }
+    }
+
+    const shadows = [];
+    for (let i = 0; i < 30; i++) shadows.push(new ShadowParticle());
+
+    // Ember-like light particles near the corona
+    class EmberParticle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = eclipseR() * (1.2 + Math.random() * 1.5);
+        this.x = eclipseX() + Math.cos(angle) * dist;
+        this.y = eclipseY() + Math.sin(angle) * dist;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3 - 0.1;
+        this.life = 1;
+        this.decay = Math.random() * 0.005 + 0.003;
+        this.size = Math.random() * 2 + 0.5;
+        this.hue = Math.random() * 40 + 15; // warm orange-gold
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy -= 0.003; // float upward
+        this.life -= this.decay;
+
+        // Mouse attracts embers
+        const dx = mouse.x - this.x;
+        const dy = mouse.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 200 && dist > 0) {
+          const force = 0.2 * (200 - dist) / 200;
+          this.vx += (dx / dist) * force * 0.02;
+          this.vy += (dy / dist) * force * 0.02;
+        }
+
+        if (this.life <= 0) this.reset();
+      }
+      draw() {
+        const alpha = this.life * 0.6;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${this.hue}, 90%, 70%, ${alpha})`;
+        ctx.shadowBlur = this.size * 6;
+        ctx.shadowColor = `hsla(${this.hue}, 90%, 60%, ${alpha * 0.5})`;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+
+    const embers = [];
+    for (let i = 0; i < 50; i++) embers.push(new EmberParticle());
+
+    function drawStars() {
+      stars.forEach(s => {
+        const twinkle = 0.5 + 0.5 * Math.sin(time * s.twinkle + s.phase);
+        const alpha = s.brightness * twinkle;
+        // Stars dim near eclipse
+        const dx = s.x * W - eclipseX();
+        const dy = s.y * H - eclipseY();
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dimming = Math.min(1, dist / (eclipseR() * 4));
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(220, 215, 240, ${alpha * dimming})`;
+        ctx.fill();
+      });
+    }
+
+    function drawCorona() {
+      const cx = eclipseX();
+      const cy = eclipseY();
+      const r = eclipseR();
+
+      // Outer glow halo
+      for (let i = 3; i >= 1; i--) {
+        const glowR = r * (1.8 + i * 0.8);
+        const pulse = 1 + 0.05 * Math.sin(time * 0.008 + i);
+        const grad = ctx.createRadialGradient(cx, cy, r * 0.9, cx, cy, glowR * pulse);
+        grad.addColorStop(0, `rgba(255, 200, 150, ${0.03 / i})`);
+        grad.addColorStop(0.4, `rgba(255, 160, 120, ${0.015 / i})`);
+        grad.addColorStop(1, 'rgba(255, 120, 80, 0)');
+        ctx.beginPath();
+        ctx.arc(cx, cy, glowR * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // Corona rays
+      rays.forEach(ray => {
+        const pulse = 1 + 0.3 * Math.sin(time * ray.speed + ray.phase);
+        const len = r * (2 + ray.length * 2) * pulse;
+        const w = ray.width * r;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(ray.angle + time * 0.0003);
+
+        const grad = ctx.createLinearGradient(r * 0.95, 0, len, 0);
+        grad.addColorStop(0, `rgba(255, 220, 180, ${ray.brightness * pulse * 0.3})`);
+        grad.addColorStop(0.3, `rgba(255, 180, 140, ${ray.brightness * pulse * 0.15})`);
+        grad.addColorStop(1, 'rgba(255, 150, 100, 0)');
+
+        ctx.beginPath();
+        ctx.moveTo(r * 0.95, -w);
+        ctx.lineTo(len, 0);
+        ctx.lineTo(r * 0.95, w);
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // Inner corona ring
+      const innerGrad = ctx.createRadialGradient(cx, cy, r * 0.85, cx, cy, r * 1.3);
+      innerGrad.addColorStop(0, 'rgba(255, 240, 220, 0.08)');
+      innerGrad.addColorStop(0.5, 'rgba(255, 200, 160, 0.04)');
+      innerGrad.addColorStop(1, 'rgba(255, 150, 100, 0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 1.3, 0, Math.PI * 2);
+      ctx.fillStyle = innerGrad;
+      ctx.fill();
+
+      // Moon (black disc)
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#010102';
+      ctx.fill();
+
+      // Baily's beads
+      beads.forEach(b => {
+        const pulse = 0.5 + 0.5 * Math.sin(time * b.pulseSpeed + b.phase);
+        const bx = cx + Math.cos(b.angle) * r;
+        const by = cy + Math.sin(b.angle) * r;
+        const alpha = b.brightness * pulse;
+
+        ctx.beginPath();
+        ctx.arc(bx, by, b.size * pulse, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 245, 230, ${alpha})`;
+        ctx.shadowBlur = b.size * 8;
+        ctx.shadowColor = `rgba(255, 220, 180, ${alpha * 0.6})`;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      });
+    }
+
+    // Horizon gradient
+    function drawHorizon() {
+      const grad = ctx.createLinearGradient(0, H * 0.75, 0, H);
+      const pulse = 0.5 + 0.5 * Math.sin(time * 0.005);
+      grad.addColorStop(0, 'rgba(2, 2, 4, 0)');
+      grad.addColorStop(0.4, `rgba(40, 15, 25, ${0.05 + pulse * 0.02})`);
+      grad.addColorStop(0.7, `rgba(80, 30, 20, ${0.08 + pulse * 0.03})`);
+      grad.addColorStop(1, `rgba(50, 15, 10, ${0.12 + pulse * 0.04})`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, H * 0.75, W, H * 0.25);
+    }
+
+    function animate() {
+      time++;
+
+      ctx.fillStyle = 'rgba(2, 2, 4, 0.2)';
+      ctx.fillRect(0, 0, W, H);
+
+      drawStars();
+      drawHorizon();
+
+      shadows.forEach(s => { s.update(); s.draw(); });
+
+      drawCorona();
+
+      embers.forEach(e => { e.update(); e.draw(); });
+
+      requestAnimationFrame(animate);
+    }
+
+    ctx.fillStyle = '#020204';
+    ctx.fillRect(0, 0, W, H);
+    animate();
+  </script>
+</body>
+</html>
