@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ethereal — Rain</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap');
+
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    overflow: hidden;
+    background: #080c12;
+    font-family: 'Cormorant Garamond', serif;
+    color: #c0d0e0;
+  }
+
+  canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+  }
+
+  .content {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    text-align: center;
+    padding: 2rem;
+    animation: fadeIn 4s ease-out;
+    pointer-events: none;
+  }
+
+  .content > * { pointer-events: auto; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translate(-50%, -50%) translateY(20px); }
+    to { opacity: 1; transform: translate(-50%, -50%) translateY(0); }
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    text-transform: lowercase;
+    background: linear-gradient(135deg, #8cb4d8 0%, #c8ddf0 40%, #6a9cc0 70%, #a8c8e0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 30px rgba(140, 180, 216, 0.3));
+    animation: shimmer 6s ease-in-out infinite;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { filter: drop-shadow(0 0 30px rgba(140, 180, 216, 0.3)); }
+    50% { filter: drop-shadow(0 0 50px rgba(140, 180, 216, 0.5)); }
+  }
+
+  .line {
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(140, 180, 216, 0.5), transparent);
+    margin: 1.5rem auto;
+  }
+
+  p {
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    font-weight: 300;
+    font-style: italic;
+    letter-spacing: 0.15em;
+    opacity: 0.6;
+    max-width: 460px;
+    margin: 0 auto;
+    line-height: 1.8;
+  }
+
+  .back {
+    display: inline-block;
+    margin-top: 1.5rem;
+    color: rgba(160, 190, 220, 0.35);
+    text-decoration: none;
+    font-size: 0.95rem;
+    letter-spacing: 0.2em;
+    transition: color 0.5s ease;
+  }
+
+  .back:hover {
+    color: rgba(160, 190, 220, 0.8);
+  }
+</style>
+</head>
+<body>
+  <canvas id="rain"></canvas>
+
+  <div class="content">
+    <h1>rain</h1>
+    <div class="line"></div>
+    <p>each drop a small forgetting,<br>the sky unburdening itself<br>into the patience of the earth</p>
+    <a class="back" href="../">&larr; return</a>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('rain');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+    let mouse = { x: -1000, y: -1000 };
+    let time = 0;
+    let lightningFlash = 0;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    window.addEventListener('click', e => {
+      for (let i = 0; i < 5; i++) {
+        ripples.push(new Ripple(e.clientX + (Math.random() - 0.5) * 40, e.clientY + (Math.random() - 0.5) * 20));
+      }
+    });
+
+    // Rain drops
+    class Drop {
+      constructor() {
+        this.reset();
+        this.y = Math.random() * H;
+      }
+      reset() {
+        this.x = Math.random() * W * 1.2 - W * 0.1;
+        this.y = -20;
+        this.len = Math.random() * 18 + 8;
+        this.speed = Math.random() * 8 + 6;
+        this.opacity = Math.random() * 0.3 + 0.1;
+        this.wind = 2.5;
+        this.thickness = Math.random() * 1.2 + 0.3;
+      }
+      update() {
+        this.y += this.speed;
+        this.x += this.wind;
+
+        // Mouse pushes rain away
+        const dx = this.x - mouse.x;
+        const dy = this.y - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 100 && dist > 0) {
+          const force = (100 - dist) / 100;
+          this.x += (dx / dist) * force * 3;
+        }
+
+        if (this.y > H) {
+          // Chance to create a ripple at landing
+          if (Math.random() < 0.03) {
+            ripples.push(new Ripple(this.x, H - Math.random() * 40));
+          }
+          this.reset();
+        }
+      }
+      draw() {
+        const alpha = this.opacity + lightningFlash * 0.15;
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.x + this.wind * 1.5, this.y + this.len);
+        ctx.strokeStyle = `rgba(170, 200, 230, ${alpha})`;
+        ctx.lineWidth = this.thickness;
+        ctx.stroke();
+      }
+    }
+
+    // Ripples on the ground
+    class Ripple {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = 1;
+        this.maxRadius = Math.random() * 30 + 15;
+        this.speed = Math.random() * 0.8 + 0.4;
+        this.life = 1;
+        this.decay = 0.015 + Math.random() * 0.01;
+      }
+      update() {
+        this.radius += this.speed;
+        this.life -= this.decay;
+      }
+      draw() {
+        if (this.life <= 0) return;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, this.radius, this.radius * 0.35, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(150, 190, 220, ${this.life * 0.3})`;
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+
+        // Inner ring
+        if (this.radius > 5) {
+          ctx.beginPath();
+          ctx.ellipse(this.x, this.y, this.radius * 0.6, this.radius * 0.6 * 0.35, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(150, 190, 220, ${this.life * 0.15})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Mist / fog layers
+    class MistLayer {
+      constructor(y) {
+        this.y = y;
+        this.offset = Math.random() * 1000;
+        this.speed = Math.random() * 0.3 + 0.1;
+        this.alpha = Math.random() * 0.04 + 0.01;
+        this.height = Math.random() * 80 + 40;
+      }
+      draw() {
+        const x = Math.sin((time + this.offset) * 0.002 * this.speed) * 100;
+        const grad = ctx.createLinearGradient(0, this.y - this.height, 0, this.y + this.height);
+        grad.addColorStop(0, `rgba(100, 130, 160, 0)`);
+        grad.addColorStop(0.5, `rgba(100, 130, 160, ${this.alpha})`);
+        grad.addColorStop(1, `rgba(100, 130, 160, 0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(x - 100, this.y - this.height, W + 200, this.height * 2);
+      }
+    }
+
+    const drops = [];
+    for (let i = 0; i < 250; i++) drops.push(new Drop());
+
+    let ripples = [];
+
+    const mistLayers = [];
+    for (let i = 0; i < 5; i++) {
+      mistLayers.push(new MistLayer(H * 0.3 + Math.random() * H * 0.5));
+    }
+
+    // Distant city lights / ground glow
+    function drawGroundGlow() {
+      const grad = ctx.createLinearGradient(0, H * 0.85, 0, H);
+      grad.addColorStop(0, 'rgba(8, 12, 18, 0)');
+      grad.addColorStop(0.5, 'rgba(20, 30, 50, 0.3)');
+      grad.addColorStop(1, 'rgba(15, 25, 40, 0.6)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, H * 0.85, W, H * 0.15);
+
+      // Scattered dim lights
+      for (let i = 0; i < 8; i++) {
+        const lx = (i * 0.12 + 0.06) * W + Math.sin(time * 0.001 + i) * 5;
+        const ly = H * 0.92 + Math.sin(time * 0.002 + i * 3) * 3;
+        const flicker = 0.4 + 0.2 * Math.sin(time * 0.05 + i * 7);
+        const grad2 = ctx.createRadialGradient(lx, ly, 0, lx, ly, 25);
+        grad2.addColorStop(0, `rgba(200, 180, 140, ${flicker * 0.08})`);
+        grad2.addColorStop(1, 'rgba(200, 180, 140, 0)');
+        ctx.fillStyle = grad2;
+        ctx.fillRect(lx - 25, ly - 25, 50, 50);
+      }
+    }
+
+    // Lightning
+    function maybeFlash() {
+      if (Math.random() < 0.001) {
+        lightningFlash = 1;
+      }
+      if (lightningFlash > 0) {
+        lightningFlash *= 0.92;
+        if (lightningFlash < 0.01) lightningFlash = 0;
+      }
+    }
+
+    // Mouse ripple effect - continuous gentle ripples near cursor
+    let rippleTimer = 0;
+
+    function animate() {
+      time++;
+
+      // Soft clear with dark wash
+      ctx.fillStyle = `rgba(8, 12, 18, ${0.25 + lightningFlash * 0.5})`;
+      ctx.fillRect(0, 0, W, H);
+
+      // Lightning flash overlay
+      if (lightningFlash > 0.05) {
+        ctx.fillStyle = `rgba(200, 210, 230, ${lightningFlash * 0.06})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Draw mist
+      mistLayers.forEach(m => m.draw());
+
+      // Draw ground glow
+      drawGroundGlow();
+
+      // Draw and update ripples
+      ripples = ripples.filter(r => r.life > 0);
+      ripples.forEach(r => { r.update(); r.draw(); });
+
+      // Mouse creates gentle ripples
+      rippleTimer++;
+      if (rippleTimer % 12 === 0 && mouse.x > 0) {
+        ripples.push(new Ripple(
+          mouse.x + (Math.random() - 0.5) * 30,
+          mouse.y + (Math.random() - 0.5) * 15
+        ));
+      }
+
+      // Draw rain
+      drops.forEach(d => { d.update(); d.draw(); });
+
+      // Lightning
+      maybeFlash();
+
+      requestAnimationFrame(animate);
+    }
+
+    ctx.fillStyle = '#080c12';
+    ctx.fillRect(0, 0, W, H);
+    animate();
+  </script>
+</body>
+</html>
